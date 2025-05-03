@@ -1,0 +1,45 @@
+FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    git \
+    wget \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -s /usr/bin/python3 /usr/bin/python
+RUN useradd -m -u 1000 user
+RUN mkdir -p /home/user/app/bert /home/user/app/model_assets /home/user/app/slm /home/user/app/configs
+WORKDIR /home/user/app
+COPY --chown=user . /home/user/app
+RUN chown -R user:user /home/user/app
+USER user
+ENV HOME=/home/user \
+    PATH=/home/user/.local/bin:$PATH
+RUN pip install --no-cache-dir --upgrade pip
+RUN pip install --no-cache-dir "torch<2.4" "torchaudio<2.4" --index-url https://download.pytorch.org/whl/cu118
+RUN pip install --no-cache-dir -r /home/user/app/requirements.txt
+RUN pip install --no-cache-dir GPUtil psutil
+
+USER root
+RUN mkdir -p /home/user/app/bert
+RUN wget -O /home/user/app/bert/bert_models.json https://raw.githubusercontent.com/litagin02/Style-Bert-VITS2/master/bert/bert_models.json
+RUN chown user:user /home/user/app/bert/bert_models.json
+RUN mkdir -p /home/user/app/configs
+RUN wget -O /home/user/app/configs/default_paths.yml https://raw.githubusercontent.com/litagin02/Style-Bert-VITS2/master/configs/default_paths.yml
+RUN chown user:user /home/user/app/configs/default_paths.yml
+
+RUN sed -i 's/bert_models.load_model(Languages.EN)/# bert_models.load_model(Languages.EN)/g' /home/user/app/server_fastapi.py
+RUN sed -i 's/bert_models.load_tokenizer(Languages.EN)/# bert_models.load_tokenizer(Languages.EN)/g' /home/user/app/server_fastapi.py
+RUN sed -i 's/bert_models.load_model(Languages.ZH)/# bert_models.load_model(Languages.ZH)/g' /home/user/app/server_fastapi.py
+RUN sed -i 's/bert_models.load_tokenizer(Languages.ZH)/# bert_models.load_tokenizer(Languages.ZH)/g' /home/user/app/server_fastapi.py
+
+RUN python3 -c "from initialize import download_bert_models, download_slm_model, download_default_models; download_bert_models(); download_slm_model(); download_default_models();"
+USER user
+EXPOSE 8000
+RUN echo '#!/bin/bash\n\
+echo "Starting Style-Bert-VITS2 FastAPI server..."\n\
+cd /home/user/app\n\
+export CUDA_VISIBLE_DEVICES=0\n\
+python3 server_fastapi.py --dir /home/user/app/model_assets\n\
+' > /home/user/startup.sh
+RUN chmod +x /home/user/startup.sh
+CMD ["/home/user/startup.sh"]
