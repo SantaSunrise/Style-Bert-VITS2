@@ -33,7 +33,7 @@ RUN python3 initialize.py
 
 RUN mkdir -p Data model_assets
 
-EXPOSE 7860 7861 8080
+EXPOSE 7860 7861 
 
 RUN echo '#!/bin/bash\n\
 echo "Starting Style-Bert-VITS2 Training Web Editor..."\n\
