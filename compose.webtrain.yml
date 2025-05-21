@@ -8,6 +8,7 @@ services:
     volumes:
       - ./Data:/app/Data
       - ./inputs:/app/inputs
+      - ./model_assets:/app/model_assets
     ports:
       - "7860:7860"
       - "7861:7861"
