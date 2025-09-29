@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  style-bert-vits2-webui:
+    build:
+      context: .
+      dockerfile: Dockerfile.webui
+    container_name: sbv2-webui
+    restart: always
+    ports:
+      - "7860:7860"
+    volumes:
+      - ./Data:/home/user/app/Data
+      - ./model_assets:/home/user/app/model_assets
+      - ./inputs:/home/user/app/inputs
+      - ./.cache:/home/user/.cache
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=1
+      - CUDA_VISIBLE_DEVICES=1
+      - TRANSFORMERS_CACHE=/home/user/.cache/huggingface
+    command: |
+      bash -c "
+        echo 'Checking and copying narumiya_naru to model_assets...'
+        if [ -d /home/user/app/Data/narumiya_naru ] && [ ! -d /home/user/app/model_assets/narumiya_naru ]; then
+          echo 'Copying narumiya_naru directory...'
+          cp -r /home/user/app/Data/narumiya_naru /home/user/app/model_assets/
+          echo 'Copy completed!'
+        else
+          echo 'narumiya_naru already exists in model_assets or not found in Data'
+        fi
+        echo 'Starting Style-Bert-VITS2 server...'
+        cd /home/user/app
+        export CUDA_VISIBLE_DEVICES=1
+        exec python3 server_editor.py --line_length 50 --line_count 3 --device cuda --port 7860
+      "
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['1']
+              capabilities: [gpu]
+    networks:
+      - sbv2-network
+
+networks:
+  sbv2-network:
+    driver: bridge
