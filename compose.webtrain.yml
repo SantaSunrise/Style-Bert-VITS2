@@ -8,17 +8,31 @@ services:
     volumes:
       - ./Data:/app/Data
       - ./inputs:/app/inputs
+      - ./model_assets:/app/model_assets
     ports:
       - "7860:7860"
       - "7861:7861"
     environment:
-      - NVIDIA_VISIBLE_DEVICES=0
-      - CUDA_VISIBLE_DEVICES=0
+      - NVIDIA_VISIBLE_DEVICES=1
+      - CUDA_VISIBLE_DEVICES=1
     restart: always
+    command: |
+      bash -c "
+        echo 'Checking and copying narumiya_naru to model_assets...'
+        if [ -d /app/Data/narumiya_naru ] && [ ! -d /app/model_assets/narumiya_naru ]; then
+          echo 'Copying narumiya_naru directory...'
+          cp -r /app/Data/narumiya_naru /app/model_assets/
+          echo 'Copy completed!'
+        else
+          echo 'narumiya_naru already exists in model_assets or not found in Data'
+        fi
+        echo 'Starting Style-Bert-VITS2 app...'
+        exec /app/start.sh app
+      "
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: ['0']
+              device_ids: ['1']
               capabilities: [gpu]
